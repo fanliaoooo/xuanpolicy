@@ -6,15 +6,15 @@ class DDPG_Learner(Learner):
                  policy: tk.Model,
                  optimizers: Sequence[tk.optimizers.Optimizer],
                  device: str = "cpu:0",
-                 modeldir: str = "./",
+                 model_dir: str = "./",
                  gamma: float = 0.99,
                  tau: float = 0.01):
         self.tau = tau
         self.gamma = gamma
-        super(DDPG_Learner, self).__init__(policy, optimizers, device, modeldir)
+        super(DDPG_Learner, self).__init__(policy, optimizers, device, model_dir)
 
     def save_model(self):
-        model_path = self.modeldir + "model-%s-%s" % (time.asctime(), str(self.iterations))
+        model_path = self.model_dir + "model-%s-%s" % (time.asctime(), str(self.iterations))
         self.policy.actor.save(model_path)
 
     def load_model(self, path):
@@ -36,8 +36,8 @@ class DDPG_Learner(Learner):
 
             # critic update
             with tf.GradientTape() as tape:
-                _, action_q = self.policy.Qaction(obs_batch, act_batch)
-                _, target_q = self.policy.Qtarget(next_batch)
+                action_q = self.policy.Qaction(obs_batch, act_batch)
+                target_q = self.policy.Qtarget(next_batch)
                 backup = rew_batch + (1 - ter_batch) * self.gamma * target_q
                 y_true = tf.reshape(tf.stop_gradient(backup), [-1])
                 y_pred = tf.reshape(action_q, [-1])
@@ -51,7 +51,7 @@ class DDPG_Learner(Learner):
 
             # actor update
             with tf.GradientTape() as tape:
-                _, policy_q = self.policy.Qpolicy(obs_batch)
+                policy_q = self.policy.Qpolicy(obs_batch)
                 p_loss = -tf.reduce_mean(policy_q)
                 gradients = tape.gradient(p_loss, self.policy.actor.trainable_variables)
                 self.optimizer[0].apply_gradients([

@@ -4,12 +4,12 @@ from xuance.tensorflow.agents import *
 class DuelDQN_Agent(Agent):
     def __init__(self,
                  config: Namespace,
-                 envs: VecEnv,
+                 envs: DummyVecEnv_Gym,
                  policy: tk.Model,
                  optimizer: tk.optimizers.Optimizer,
                  device: str = 'cpu'):
         self.render = config.render
-        self.nenvs = envs.num_envs
+        self.n_envs = envs.num_envs
 
         self.gamma = config.gamma
         self.train_frequency = config.training_frequency
@@ -20,29 +20,27 @@ class DuelDQN_Agent(Agent):
 
         self.observation_space = envs.observation_space
         self.action_space = envs.action_space
-        self.representation_info_shape = policy.representation.output_shapes
         self.auxiliary_info_shape = {}
 
         self.atari = True if config.env_name == "Atari" else False
         Buffer = DummyOffPolicyBuffer_Atari if self.atari else DummyOffPolicyBuffer
         memory = Buffer(self.observation_space,
                         self.action_space,
-                        self.representation_info_shape,
                         self.auxiliary_info_shape,
-                        self.nenvs,
-                        config.nsize,
-                        config.batchsize)
+                        self.n_envs,
+                        config.n_size,
+                        config.batch_size)
         learner = DuelDQN_Learner(policy,
                                   optimizer,
                                   config.device,
-                                  config.modeldir,
+                                  config.model_dir,
                                   config.gamma,
                                   config.sync_frequency)
-        super(DuelDQN_Agent, self).__init__(config, envs, policy, memory, learner, device, config.logdir, config.modeldir)
+        super(DuelDQN_Agent, self).__init__(config, envs, policy, memory, learner, device, config.log_dir, config.model_dir)
 
     def _action(self, obs, egreedy=0.0):
         _, argmax_action, _ = self.policy(obs)
-        random_action = np.random.choice(self.action_space.n, self.nenvs)
+        random_action = np.random.choice(self.action_space.n, self.n_envs)
         if np.random.rand() < egreedy:
             action = random_action
         else:
@@ -64,9 +62,10 @@ class DuelDQN_Agent(Agent):
                 obs_batch, act_batch, rew_batch, terminal_batch, next_batch = self.memory.sample()
                 step_info = self.learner.update(obs_batch, act_batch, rew_batch, next_batch, terminal_batch)
                 step_info["epsilon-greedy"] = self.egreedy
+                self.log_infos(step_info, self.current_step)
 
             obs = next_obs
-            for i in range(self.nenvs):
+            for i in range(self.n_envs):
                 if terminals[i] or trunctions[i]:
                     if self.atari and (~trunctions[i]):
                         pass
@@ -81,7 +80,7 @@ class DuelDQN_Agent(Agent):
                             step_info["Train-Episode-Rewards"] = {"env-%d" % i: infos[i]["episode_score"]}
                         self.log_infos(step_info, self.current_step)
 
-            self.current_step += self.nenvs
+            self.current_step += self.n_envs
             if self.egreedy > self.end_greedy:
                 self.egreedy = self.egreedy - (self.start_greedy - self.end_greedy) / self.config.decay_step_greedy
 
@@ -129,7 +128,10 @@ class DuelDQN_Agent(Agent):
         if self.config.test_mode:
             print("Best Score: %.2f" % (best_score))
 
-        test_info = {"Test-Episode-Rewards/Mean-Score": np.mean(scores)}
+        test_info = {
+            "Test-Episode-Rewards/Mean-Score": np.mean(scores),
+            "Test-Episode-Rewards/Std-Score": np.std(scores)
+        }
         self.log_infos(test_info, self.current_step)
 
         test_envs.close()

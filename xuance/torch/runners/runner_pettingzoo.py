@@ -71,16 +71,13 @@ class Pettingzoo_Runner(Runner_Base):
                                job_type=arg.agent,
                                name=time.asctime(),
                                reinit=True)
-
-                self.current_step = 0
-                self.current_episode = np.zeros((self.envs.num_envs,), np.int32)
                 break
 
         self.episode_length = self.envs.max_episode_length
 
         # environment details, representations, policies, optimizers, and agents.
         for h, arg in enumerate(self.args):
-            arg.handle_name = self.envs.envs[0].side_names[h]
+            arg.handle_name = self.envs.side_names[h]
             if self.n_handles > 1 and arg.agent != "RANDOM":
                 arg.model_dir += "{}/".format(arg.handle_name)
             arg.handle, arg.n_agents = h, self.envs.n_agents[h]
@@ -104,7 +101,7 @@ class Pettingzoo_Runner(Runner_Base):
             self.marl_agents.append(REGISTRY_Agent[arg.agent](arg, self.envs, arg.device))
             self.marl_names.append(arg.agent)
             if arg.test_mode:
-                self.marl_agents[h].load_model(arg.model_dir)
+                self.marl_agents[h].load_model(arg.model_dir, arg.seed)
 
         self.print_infos(self.args)
 
@@ -157,12 +154,17 @@ class Pettingzoo_Runner(Runner_Base):
         act_mean_current = act_mean_last
         for h, mas_group in enumerate(self.marl_agents):
             if self.marl_names[h] == "MFQ":
-                a, a_mean = mas_group.act(obs_n[h], test_mode, act_mean_last[h], agent_mask[h])
+                _, a, a_mean = mas_group.act(obs_n[h], test_mode=test_mode, act_mean=act_mean_last[h], agent_mask=agent_mask[h])
                 act_mean_current[h] = a_mean
             elif self.marl_names[h] == "MFAC":
                 a, a_mean = mas_group.act(obs_n[h], test_mode, act_mean_last[h], agent_mask[h])
                 act_mean_current[h] = a_mean
-            elif self.marl_names[h] in ["MAPPO", "IPPO", "VDAC"]:
+                _, values = mas_group.values(obs_n[h], act_mean_current[h])
+                values_n.append(values)
+            elif self.marl_names[h] == "VDAC":
+                _, a, values = mas_group.act(obs_n[h], state=state, test_mode=test_mode)
+                values_n.append(values)
+            elif self.marl_names[h] in ["MAPPO", "IPPO"]:
                 _, a, log_pi = mas_group.act(obs_n[h], test_mode=test_mode, state=state)
                 _, values = mas_group.values(obs_n[h], state=state)
                 log_pi_n.append(log_pi)
@@ -197,9 +199,13 @@ class Pettingzoo_Runner(Runner_Base):
                 if mas_group.memory.full:
                     if self.marl_names[h] == "COMA":
                         _, values_next = mas_group.values(next_obs_n[h],
-                                                          actions_dict['actions_n'][h],
-                                                          actions_dict['act_n_onehot'][h],
-                                                          state=next_state)
+                                                          state=next_state,
+                                                          actions_n=actions_dict['actions_n'][h],
+                                                          actions_onehot=actions_dict['act_n_onehot'][h])
+                    elif self.marl_names[h] == "MFAC":
+                        _, values_next = mas_group.values(next_obs_n[h], actions_dict['act_mean'][h])
+                    elif self.marl_names[h] == "VDAC":
+                        _, _, values_next = mas_group.act(next_obs_n[h])
                     else:
                         _, values_next = mas_group.values(next_obs_n[h], state=next_state)
                     for i_env in range(self.n_envs):
@@ -256,9 +262,13 @@ class Pettingzoo_Runner(Runner_Base):
                             if mas_group.on_policy:
                                 if mas_group.args.agent == "COMA":
                                     _, value_next_e = mas_group.values(next_obs_n[h],
-                                                                       actions_dict['actions_n'][h],
-                                                                       actions_dict['act_n_onehot'][h],
-                                                                       state=next_state)
+                                                                       state=next_state,
+                                                                       actions_n=actions_dict['actions_n'][h],
+                                                                       actions_onehot=actions_dict['act_n_onehot'][h])
+                                elif mas_group.args.agent == "MFAC":
+                                    _, value_next_e = mas_group.values(next_obs_n[h], act_mean_last[h])
+                                elif mas_group.args.agent == "VDAC":
+                                    _, _, value_next_e = mas_group.act(next_obs_n[h])
                                 else:
                                     _, value_next_e = mas_group.values(next_obs_n[h], state=next_state)
                                 mas_group.memory.finish_path(value_next_e[i_env], i_env)
@@ -354,7 +364,7 @@ class Pettingzoo_Runner(Runner_Base):
 
             self.render = True
             for h, mas_group in enumerate(self.marl_agents):
-                mas_group.load_model(mas_group.model_dir)
+                mas_group.load_model(mas_group.model_dir_load, mas_group.args.seed)
             self.test_episode(env_fn)
             print("Finish testing.")
         else:
@@ -386,6 +396,8 @@ class Pettingzoo_Runner(Runner_Base):
             "std": np.std(test_scores, axis=1).reshape([self.n_handles]),
             "step": self.current_step
         } for _ in range(self.n_handles)]
+        for h in range(self.n_handles):
+            self.marl_agents[h].save_model("best_model.pth")
 
         for i_epoch in range(num_epoch):
             print("Epoch: %d/%d:" % (i_epoch, num_epoch))

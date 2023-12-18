@@ -4,6 +4,7 @@ Paper link: https://ojs.aaai.org/index.php/AAAI/article/view/17353
 Implementation: MindSpore
 """
 from xuance.mindspore.learners import *
+from xuance.torch.utils.operations import update_linear_decay
 
 
 class VDAC_Learner(LearnerMAS):
@@ -33,17 +34,27 @@ class VDAC_Learner(LearnerMAS):
                  policy: nn.Cell,
                  optimizer: nn.Optimizer,
                  scheduler: Optional[nn.exponential_decay_lr] = None,
-                 summary_writer: Optional[SummaryWriter] = None,
-                 modeldir: str = "./",
+                 model_dir: str = "./",
                  gamma: float = 0.99,
                  ):
         self.gamma = gamma
+        self.clip_range = config.clip_range
+        self.use_linear_lr_decay = config.use_linear_lr_decay
+        self.use_grad_norm, self.max_grad_norm = config.use_grad_norm, config.max_grad_norm
+        self.use_value_norm = config.use_value_norm
+        self.vf_coef, self.ent_coef = config.vf_coef, config.ent_coef
         self.mse_loss = nn.MSELoss()
-        super(VDAC_Learner, self).__init__(config, policy, optimizer, scheduler, summary_writer, modeldir)
+        super(VDAC_Learner, self).__init__(config, policy, optimizer, scheduler, model_dir)
         self.loss_net = self.PolicyNetWithLossCell(policy, config.vf_coef, config.ent_coef)
         self.policy_train = TrainOneStepCellWithGradClip(self.loss_net, optimizer,
-                                                         clip_type=config.clip_type, clip_value=config.clip_grad)
+                                                         clip_type=config.clip_type, clip_value=config.max_grad_norm)
         self.policy_train.set_train()
+        self.lr = config.learning_rate
+        self.end_factor_lr_decay = config.end_factor_lr_decay
+
+    def lr_decay(self, i_step):
+        if self.use_linear_lr_decay:
+            update_linear_decay(self.optimizer, i_step, self.running_steps, self.lr, self.end_factor_lr_decay)
 
     def update(self, sample):
         self.iterations += 1
@@ -61,5 +72,10 @@ class VDAC_Learner(LearnerMAS):
 
         # Logger
         lr = self.scheduler(self.iterations).asnumpy()
-        self.writer.add_scalar("learning_rate", lr, self.iterations)
-        self.writer.add_scalar("loss", loss.asnumpy(), self.iterations)
+
+        info = {
+            "learning_rate": lr,
+            "loss": loss.asnumpy()
+        }
+
+        return info

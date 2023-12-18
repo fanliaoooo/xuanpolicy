@@ -2,6 +2,7 @@
 .vscode
 .DS_Store
 logs/
+videos/
 dist/
 .eggs/
 xuance.egg-info/
@@ -9,3 +10,4 @@ models/
 *.sh
 .VSCodeCounter/
 **/__pycache__
+rank_0/

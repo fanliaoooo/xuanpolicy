@@ -11,13 +11,13 @@ class IQL_Learner(LearnerMAS):
                  policy: tk.Model,
                  optimizer: tk.optimizers.Optimizer,
                  device: str = "cpu:0",
-                 modeldir: str = "./",
+                 model_dir: str = "./",
                  gamma: float = 0.99,
                  sync_frequency: int = 100
                  ):
         self.gamma = gamma
         self.sync_frequency = sync_frequency
-        super(IQL_Learner, self).__init__(config, policy, optimizer, device, modeldir)
+        super(IQL_Learner, self).__init__(config, policy, optimizer, device, model_dir)
 
     def update(self, sample):
         self.iterations += 1
@@ -53,10 +53,10 @@ class IQL_Learner(LearnerMAS):
                 q_target = tf.stop_gradient(tf.reshape(q_target, [-1]))
                 q_eval_a = tf.reshape(q_eval_a, [-1])
                 loss = tk.losses.mean_squared_error(q_target, q_eval_a)
-                gradients = tape.gradient(loss, self.policy.trainable_variables)
+                gradients = tape.gradient(loss, self.policy.trainable_param())
                 self.optimizer.apply_gradients([
                     (grad, var)
-                    for (grad, var) in zip(gradients, self.policy.trainable_variables)
+                    for (grad, var) in zip(gradients, self.policy.trainable_param())
                     if grad is not None
                 ])
 

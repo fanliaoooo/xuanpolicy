@@ -13,13 +13,13 @@ class QTRAN_Learner(LearnerMAS):
                  policy: tk.Model,
                  optimizer: tk.optimizers.Optimizer,
                  device: str = "cpu:0",
-                 modeldir: str = "./",
+                 model_dir: str = "./",
                  gamma: float = 0.99,
                  sync_frequency: int = 100
                  ):
         self.gamma = gamma
         self.sync_frequency = sync_frequency
-        super(QTRAN_Learner, self).__init__(config, policy, optimizer, device, modeldir)
+        super(QTRAN_Learner, self).__init__(config, policy, optimizer, device, model_dir)
 
     def update(self, sample):
         self.iterations += 1
@@ -29,7 +29,7 @@ class QTRAN_Learner(LearnerMAS):
             actions_onehot = self.onehot_action(actions, self.dim_act)
             obs_next = tf.convert_to_tensor(sample['obs_next'])
             rewards = tf.reduce_mean(tf.convert_to_tensor(sample['rewards']), axis=1)
-            terminals = tf.reshape(tf.convert_to_tensor(sample['terminals'], dtype=tf.float32), [-1, self.n_agents, 1])
+            terminals = tf.reshape(tf.convert_to_tensor(sample['terminals'].all(axis=-1, keepdims=True), dtype=tf.float32), [-1, 1])
             agent_mask = tf.reshape(tf.convert_to_tensor(sample['agent_mask'], dtype=tf.float32),
                                     [-1, self.n_agents, 1])
             IDs = tf.tile(tf.expand_dims(tf.eye(self.n_agents), axis=0), multiples=(self.args.batch_size, 1, 1))

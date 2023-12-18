@@ -4,6 +4,7 @@ from argparse import Namespace
 from mpi4py import MPI
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
+import wandb
 import mindspore as ms
 import mindspore.nn as nn
 from mindspore import context
@@ -18,8 +19,8 @@ from xuance.mindspore.representations import REGISTRY as REGISTRY_Representation
 from mindspore.nn import Adam
 from mindspore.nn.learning_rate_schedule import ExponentialDecayLR as lr_decay_model
 
-from .agent import Agent
-from .agents_marl import MARLAgents, RandomAgents, get_total_iters
+from .agent import Agent, get_total_iters
+from .agents_marl import MARLAgents, RandomAgents
 
 '''
 Single-Agent DRL algorithms
@@ -33,14 +34,12 @@ from .policy_gradient.ddpg_agent import DDPG_Agent
 from .policy_gradient.td3_agent import TD3_Agent
 
 from .qlearning_family.dqn_agent import DQN_Agent
-from .qlearning_family.cdqn_agent import CDQN_Agent
-from .qlearning_family.ldqn_agent import LDQN_Agent
-from .qlearning_family.cldqn_agent import CLDQN_Agent
 from .qlearning_family.dueldqn_agent import DuelDQN_Agent
 from .qlearning_family.ddqn_agent import DDQN_Agent
 from .qlearning_family.C51_agent import C51_Agent
 from .qlearning_family.noisydqn_agent import NoisyDQN_Agent
 from .qlearning_family.perdqn_agent import PerDQN_Agent
+from .qlearning_family.drqn_agent import DRQN_Agent
 from .qlearning_family.qrdqn_agent import QRDQN_Agent
 from .policy_gradient.sac_agent import SAC_Agent
 from .policy_gradient.sacdis_agent import SACDIS_Agent
@@ -63,8 +62,8 @@ from .multi_agent_rl.iddpg_agents import IDDPG_Agents
 from .multi_agent_rl.maddpg_agents import MADDPG_Agents
 from .multi_agent_rl.mfq_agents import MFQ_Agents
 from .multi_agent_rl.mfac_agents import MFAC_Agents
-from .multi_agent_rl.mappoclip_agents import MAPPO_Clip_Agents
-from .multi_agent_rl.mappokl_agents import MAPPO_KL_Agents
+from .multi_agent_rl.ippo_agents import IPPO_Agents
+from .multi_agent_rl.mappo_agents import MAPPO_Agents
 from .multi_agent_rl.isac_agents import ISAC_Agents
 from .multi_agent_rl.masac_agents import MASAC_Agents
 from .multi_agent_rl.matd3_agents import MATD3_Agents
@@ -86,12 +85,10 @@ REGISTRY = {
     "C51DQN": C51_Agent,
     "PerDQN": PerDQN_Agent,
     "QRDQN": QRDQN_Agent,
-    "CDQN": CDQN_Agent,
-    "LDQN": LDQN_Agent,
-    "CLDQN": CLDQN_Agent,
     "PDQN": PDQN_Agent,
     "MPDQN": MPDQN_Agent,
     "SPDQN": SPDQN_Agent,
+    "DRQN": DRQN_Agent,
 
     "RANDOM": RandomAgents,
     "IQL": IQL_Agents,
@@ -109,8 +106,8 @@ REGISTRY = {
     "MADDPG": MADDPG_Agents,
     "MFQ": MFQ_Agents,
     "MFAC": MFAC_Agents,
-    "MAPPO_Clip": MAPPO_Clip_Agents,
-    "MAPPO_KL": MAPPO_KL_Agents,
+    "IPPO": IPPO_Agents,
+    "MAPPO": MAPPO_Agents,
     "ISAC": ISAC_Agents,
     "MASAC": MASAC_Agents,
     "MATD3": MATD3_Agents,

@@ -12,7 +12,7 @@ def mlp_block(input_dim: int,
               initialize: Optional[Callable[[ms.Tensor], ms.Tensor]] = None
               ) -> Sequence[ModuleType]:
     block = []
-    linear = nn.Dense(input_dim, output_dim)
+    linear = nn.Dense(int(input_dim), int(output_dim))
     if initialize is not None:
         initialize(linear.weight)
     block.append(linear)
@@ -61,41 +61,49 @@ def pooling_block(input_shape: Sequence[int],
     assert len(input_shape) == 3  # CxHxW
     block = []
     C, H, W = input_shape
-    block.append(pooling(output_size=(H // scale, W // scale), device=device))
+    block.append(pooling(output_size=(H // scale, W // scale)))
     return block
 
 
 def gru_block(input_dim: Sequence[int],
               output_dim: int,
+              num_layers: int = 1,
               dropout: float = 0,
               initialize: Optional[Callable[[ms.Tensor], ms.Tensor]] = None
               ) -> ModuleType:
     gru = nn.GRU(input_size=input_dim,
                  hidden_size=output_dim,
+                 num_layers=num_layers,
                  batch_first=True,
-                 dropout=dropout
+                 dropout=float(dropout)
                  )
     if initialize is not None:
         for weight_list in gru.all_weights:
             for weight in weight_list:
                 if len(weight.shape) > 1:
                     initialize(weight)
-    return gru
+    return gru, output_dim
 
 
 def lstm_block(input_dim: Sequence[int],
                output_dim: int,
+               num_layers: int = 1,
                dropout: float = 0,
                initialize: Optional[Callable[[ms.Tensor], ms.Tensor]] = None
                ) -> ModuleType:
     lstm = nn.LSTM(input_size=input_dim,
                    hidden_size=output_dim,
+                   num_layers=num_layers,
                    batch_first=True,
-                   dropout=dropout
+                   dropout=float(dropout)
                    )
     if initialize is not None:
-        for weight_list in lstm.all_weights:
+        for weight_list in lstm.w_hh_list:
             for weight in weight_list:
                 if len(weight.shape) > 1:
                     initialize(weight)
-    return lstm
+        for weight_list in lstm.w_ih_list:
+            for weight in weight_list:
+                if len(weight.shape) > 1:
+                    initialize(weight)
+    return lstm, output_dim

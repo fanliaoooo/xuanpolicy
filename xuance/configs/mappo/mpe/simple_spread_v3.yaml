@@ -1,8 +1,8 @@
 agent: "MAPPO"
 env_name: "mpe"
 env_id: "simple_spread_v3"
-continuous_action: False
-policy: "Categorical_MAAC_Policy"
+continuous_action: True
+policy: "Gaussian_MAAC_Policy"
 representation: "Basic_MLP"
 vectorize: "Dummy_Pettingzoo"
 runner: "Pettingzoo_Runner"
@@ -13,13 +13,13 @@ rnn:
 representation_hidden_size: [64, ]  # the units for each hidden layer
 gain: 0.01
 
-actor_hidden_size: [64, ]
-critic_hidden_size: [256, ]
+actor_hidden_size: [64, 64]
+critic_hidden_size: [64, 64]
 activation: "ReLU"
 
 seed: 1
-parallels: 128
-n_size: 25
+parallels: 8  # 128
+n_size: 3200
 n_epoch: 10
 n_minibatch: 1
 learning_rate: 0.0007

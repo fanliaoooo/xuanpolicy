@@ -24,7 +24,7 @@ class BasicQhead(tk.Model):
         layers_.extend(mlp_block(input_shape[0], action_dim, None, None, None, device)[0])
         self.model = tk.Sequential(layers_)
 
-    def call(self, x: tf.Tensor, training=None, masks=None):
+    def call(self, x: tf.Tensor, **kwargs):
         return self.model(x)
 
 
@@ -37,38 +37,57 @@ class BasicQnetwork(tk.Model):
                  normalize: Optional[tk.layers.Layer] = None,
                  initializer: Optional[tk.initializers.Initializer] = None,
                  activation: Optional[tk.layers.Layer] = None,
-                 device: str = "cpu:0"):
+                 device: str = "cpu:0",
+                 **kwargs):
         super(BasicQnetwork, self).__init__()
         self.action_dim = action_space.n
         self.representation = representation
+        self.target_representation = copy.deepcopy(self.representation)
         self.representation_info_shape = self.representation.output_shapes
         self.obs_dim = self.representation.input_shapes[0]
         self.n_agents = n_agents
+        self.lstm = True if kwargs["rnn"] == "LSTM" else False
+        self.use_rnn = True if kwargs["use_recurrent"] else False
         self.eval_Qhead = BasicQhead(self.representation.output_shapes['state'][0], self.action_dim, n_agents,
                                      hidden_size, normalize, initializer, activation, device)
         self.target_Qhead = BasicQhead(self.representation.output_shapes['state'][0], self.action_dim, n_agents,
                                        hidden_size, normalize, initializer, activation, device)
-        self.copy_target()
+        self.target_Qhead.set_weights(self.eval_Qhead.get_weights())
 
-    def call(self, inputs: Union[np.ndarray, dict], training=None, masks=None):
+    def call(self, inputs: Union[np.ndarray, dict], *rnn_hidden, **kwargs):
         observations = tf.reshape(inputs['obs'], [-1, self.obs_dim])
         IDs = tf.reshape(inputs['ids'], [-1, self.n_agents])
-        outputs = self.representation(observations)
+        if self.use_rnn:
+            outputs = self.representation(observations, *rnn_hidden)
+            rnn_hidden = (outputs['rnn_hidden'], outputs['rnn_cell'])
+        else:
+            outputs = self.representation(observations)
+            rnn_hidden = None
         q_inputs = tf.concat([outputs['state'], IDs], axis=-1)
         evalQ = tf.reshape(self.eval_Qhead(q_inputs), [-1, self.n_agents, self.action_dim])
-        argmax_action = tf.argmax(evalQ, axis=-1)
-        return outputs, argmax_action, evalQ
+        if ('avail_actions' in kwargs.keys()) and (kwargs['avail_actions'] is not None):
+            evalQ_detach = evalQ.clone().detach()
+            avail_actions = kwargs['avail_actions']
+            evalQ_detach[avail_actions == 0] = -9999999
+            argmax_action = evalQ_detach.argmax(dim=-1, keepdim=False)
+        else:
+            argmax_action = tf.argmax(evalQ, axis=-1)
+        return rnn_hidden, argmax_action, evalQ
 
     def target_Q(self, inputs: Union[np.ndarray, dict]):
         shape_obs = inputs["obs"].shape
         shape_ids = inputs["ids"].shape
         observations = tf.reshape(inputs['obs'], [-1, shape_obs[-1]])
         IDs = tf.reshape(inputs['ids'], [-1, shape_ids[-1]])
-        outputs = self.representation(observations)
+        outputs = self.target_representation(observations)
         q_inputs = tf.concat([outputs['state'], IDs], axis=-1)
         return tf.reshape(self.target_Qhead(q_inputs), shape_obs[0:-1] + (self.action_dim,))
 
+    def trainable_param(self):
+        return self.representation.trainable_variables + self.eval_Qhead.trainable_variables
+
     def copy_target(self):
+        self.target_representation.set_weights(self.representation.get_weights())
         self.target_Qhead.set_weights(self.eval_Qhead.get_weights())
 
 
@@ -85,15 +104,16 @@ class MFQnetwork(tk.Model):
         super(MFQnetwork, self).__init__()
         self.action_dim = action_space.n
         self.representation = representation
+        self.target_representation = copy.deepcopy(self.representation)
         self.representation_info_shape = self.representation.output_shapes
 
         self.eval_Qhead = BasicQhead(self.representation.output_shapes['state'][0] + self.action_dim, self.action_dim,
                                      n_agents, hidden_size, normalize, initializer, activation, device)
         self.target_Qhead = BasicQhead(self.representation.output_shapes['state'][0] + self.action_dim, self.action_dim,
                                        n_agents, hidden_size, normalize, initializer, activation, device)
-        self.copy_target()
+        self.target_Qhead.set_weights(self.eval_Qhead.get_weights())
 
-    def call(self, inputs: Union[np.ndarray, dict], training=None, masks=None):
+    def call(self, inputs: Union[np.ndarray, dict], **kwargs):
         observation = inputs["obs"]
         actions_mean = inputs["act_mean"]
         agent_ids = inputs["ids"]
@@ -113,6 +133,7 @@ class MFQnetwork(tk.Model):
         return self.target_Qhead(q_inputs)
 
     def copy_target(self):
+        self.target_representation.set_weights(self.representation.get_weights())
         self.target_Qhead.set_weights(self.eval_Qhead.get_weights())
 
 
@@ -126,13 +147,17 @@ class MixingQnetwork(tk.Model):
                  normalize: Optional[tk.layers.Layer] = None,
                  initializer: Optional[tk.initializers.Initializer] = None,
                  activation: Optional[tk.layers.Layer] = None,
-                 device: str = "cpu:0"):
+                 device: str = "cpu:0",
+                 **kwargs):
         super(MixingQnetwork, self).__init__()
         self.action_dim = action_space.n
         self.representation = representation
+        self.target_representation = copy.deepcopy(self.representation)
         self.representation_info_shape = self.representation.output_shapes
         self.obs_dim = self.representation.input_shapes[0]
         self.n_agents = n_agents
+        self.lstm = True if kwargs["rnn"] == "LSTM" else False
+        self.use_rnn = True if kwargs["use_recurrent"] else False
         self.eval_Qhead = BasicQhead(self.representation.output_shapes['state'][0], self.action_dim, n_agents,
                                      hidden_size, normalize, initializer, activation, device)
         self.target_Qhead = BasicQhead(self.representation.output_shapes['state'][0], self.action_dim, n_agents,
@@ -143,21 +168,32 @@ class MixingQnetwork(tk.Model):
         self.target_Qhead.set_weights(self.eval_Qhead.get_weights())
         self.target_Qtot.set_weights(self.eval_Qtot.get_weights())
 
-    def call(self, inputs: Union[np.ndarray, dict], training=None, masks=None):
+    def call(self, inputs: Union[np.ndarray, dict], *rnn_hidden, **kwargs):
         observations = tf.reshape(inputs['obs'], [-1, self.obs_dim])
         IDs = tf.reshape(inputs['ids'], [-1, self.n_agents])
-        outputs = self.representation(observations)
+        if self.use_rnn:
+            outputs = self.representation(observations, *rnn_hidden)
+            rnn_hidden = (outputs['rnn_hidden'], outputs['rnn_cell'])
+        else:
+            outputs = self.representation(observations)
+            rnn_hidden = None
         q_inputs = tf.concat([outputs['state'], IDs], axis=-1)
         evalQ = tf.reshape(self.eval_Qhead(q_inputs), [-1, self.n_agents, self.action_dim])
-        argmax_action = tf.argmax(evalQ, axis=-1)
-        return outputs, argmax_action, evalQ
+        if ('avail_actions' in kwargs.keys()) and (kwargs['avail_actions'] is not None):
+            evalQ_detach = evalQ.clone().detach()
+            avail_actions = kwargs['avail_actions']
+            evalQ_detach[avail_actions == 0] = -9999999
+            argmax_action = evalQ_detach.argmax(dim=-1, keepdim=False)
+        else:
+            argmax_action = tf.argmax(evalQ, axis=-1)
+        return rnn_hidden, argmax_action, evalQ
 
     def target_Q(self, inputs: Union[np.ndarray, dict]):
         shape_obs = inputs["obs"].shape
         shape_ids = inputs["ids"].shape
         observations = tf.reshape(inputs['obs'], [-1, shape_obs[-1]])
         IDs = tf.reshape(inputs['ids'], [-1, shape_ids[-1]])
-        outputs = self.representation(observations)
+        outputs = self.target_representation(observations)
         q_inputs = tf.concat([outputs['state'], IDs], axis=-1)
         return tf.reshape(self.target_Qhead(q_inputs), shape_obs[0:-1] + (self.action_dim,))
 
@@ -168,6 +204,7 @@ class MixingQnetwork(tk.Model):
         return self.target_Qtot(q, states)
 
     def copy_target(self):
+        self.target_representation.set_weights(self.representation.get_weights())
         self.target_Qhead.set_weights(self.eval_Qhead.get_weights())
         self.target_Qtot.set_weights(self.eval_Qtot.get_weights())
 
@@ -183,16 +220,20 @@ class Weighted_MixingQnetwork(MixingQnetwork):
                  normalize: Optional[tk.layers.Layer] = None,
                  initializer: Optional[tk.initializers.Initializer] = None,
                  activation: Optional[tk.layers.Layer] = None,
-                 device: str = "cpu:0"):
+                 device: str = "cpu:0",
+                 **kwargs):
         super(Weighted_MixingQnetwork, self).__init__(action_space, n_agents, representation, mixer, hidden_size,
-                                                      normalize, initializer, activation, device)
+                                                      normalize, initializer, activation, device, **kwargs)
         self.eval_Qhead_centralized = BasicQhead(self.representation.output_shapes['state'][0], self.action_dim,
                                                  n_agents, hidden_size, normalize, initializer, activation, device)
         self.target_Qhead_centralized = BasicQhead(self.representation.output_shapes['state'][0], self.action_dim,
                                                    n_agents, hidden_size, normalize, initializer, activation, device)
         self.q_feedforward = ff_mixer
         self.target_q_feedforward = ff_mixer
-        self.copy_target()
+        self.target_Qhead.set_weights(self.eval_Qhead.get_weights())
+        self.target_Qtot.set_weights(self.eval_Qtot.get_weights())
+        self.target_Qhead_centralized.set_weights(self.eval_Qhead_centralized.get_weights())
+        self.target_q_feedforward.set_weights(self.q_feedforward.get_weights())
 
     def q_centralized(self, inputs: Union[np.ndarray, dict]):
         observations = tf.reshape(inputs['obs'], [-1, self.obs_dim])
@@ -204,11 +245,12 @@ class Weighted_MixingQnetwork(MixingQnetwork):
     def target_q_centralized(self, inputs: Union[np.ndarray, dict]):
         observations = tf.reshape(inputs['obs'], [-1, self.obs_dim])
         IDs = tf.reshape(inputs['ids'], [-1, self.n_agents])
-        outputs = self.representation(observations)
+        outputs = self.target_representation(observations)
         q_inputs = tf.concat([outputs['state'], IDs], axis=-1)
         return tf.reshape(self.target_Qhead_centralized(q_inputs), [-1, self.n_agents, self.action_dim])
 
     def copy_target(self):
+        self.target_representation.set_weights(self.representation.get_weights())
         self.target_Qhead.set_weights(self.eval_Qhead.get_weights())
         self.target_Qtot.set_weights(self.eval_Qtot.get_weights())
         self.target_Qhead_centralized.set_weights(self.eval_Qhead_centralized.get_weights())
@@ -226,14 +268,18 @@ class Qtran_MixingQnetwork(tk.Model):
                  normalize: Optional[tk.layers.Layer] = None,
                  initializer: Optional[tk.initializers.Initializer] = None,
                  activation: Optional[tk.layers.Layer] = None,
-                 device: str = "cpu:0"):
+                 device: str = "cpu:0",
+                 **kwargs):
         super(Qtran_MixingQnetwork, self).__init__()
         self.action_dim = action_space.n
         self.representation = representation
+        self.target_representation = copy.deepcopy(self.representation)
         self.representation_info_shape = self.representation.output_shapes
         self.obs_dim = self.representation.input_shapes[0]
         self.hidden_state_dim = self.representation.output_shapes['state'][0]
         self.n_agents = n_agents
+        self.lstm = True if kwargs["rnn"] == "LSTM" else False
+        self.use_rnn = True if kwargs["use_recurrent"] else False
         self.eval_Qhead = BasicQhead(self.representation.output_shapes['state'][0], self.action_dim, n_agents,
                                      hidden_size, normalize, initializer, activation, device)
         self.target_Qhead = BasicQhead(self.representation.output_shapes['state'][0], self.action_dim, n_agents,
@@ -241,9 +287,10 @@ class Qtran_MixingQnetwork(tk.Model):
         self.qtran_net = qtran_mixer
         self.target_qtran_net = qtran_mixer
         self.q_tot = mixer
-        self.copy_target()
+        self.target_Qhead.set_weights(self.eval_Qhead.get_weights())
+        self.target_qtran_net.set_weights(self.qtran_net.get_weights())
 
-    def call(self, inputs: Union[np.ndarray, dict], training=None, masks=None):
+    def call(self, inputs: Union[np.ndarray, dict], *rnn_hidden, **kwargs):
         observations = tf.reshape(inputs['obs'], [-1, self.obs_dim])
         IDs = tf.reshape(inputs['ids'], [-1, self.n_agents])
         outputs = self.representation(observations)
@@ -255,11 +302,12 @@ class Qtran_MixingQnetwork(tk.Model):
     def target_Q(self, inputs: Union[np.ndarray, dict]):
         observations = tf.reshape(inputs['obs'], [-1, self.obs_dim])
         IDs = tf.reshape(inputs['ids'], [-1, self.n_agents])
-        outputs = self.representation(observations)
+        outputs = self.target_representation(observations)
         q_inputs = tf.concat([outputs['state'], IDs], axis=-1)
         return tf.reshape(outputs['state'], [-1, self.n_agents, self.hidden_state_dim]), self.target_Qhead(q_inputs)
 
     def copy_target(self):
+        self.target_representation.set_weights(self.representation.get_weights())
         self.target_Qhead.set_weights(self.eval_Qhead.get_weights())
         self.target_qtran_net.set_weights(self.qtran_net.get_weights())
 
@@ -295,7 +343,7 @@ class DCG_policy(tk.Model):
                                           normalize, initializer, activation, device)
         self.copy_target()
 
-    def call(self, inputs: Union[np.ndarray, dict], training=None, masks=None):
+    def call(self, inputs: Union[np.ndarray, dict], **kwargs):
         observations = tf.reshape(inputs['obs'], [-1, self.obs_dim])
         IDs = tf.reshape(inputs['ids'], [-1, self.n_agents])
         outputs = self.representation(observations)
@@ -331,7 +379,7 @@ class ActorNet(tk.Model):
         layers.extend(mlp_block(input_shape[0], action_dim, None, tk.layers.Activation("tanh"), initializer, device)[0])
         self.model = tk.Sequential(layers)
 
-    def call(self, x: tf.Tensor, training=None, masks=None):
+    def call(self, x: tf.Tensor, **kwargs):
         return self.model(x)
 
 
@@ -359,7 +407,7 @@ class CriticNet(tk.Model):
         layers.extend(mlp_block(input_shape[0], 1, None, None, initializer, device)[0])
         self.model = tk.Sequential(layers)
 
-    def call(self, x: tf.Tensor, training=None, masks=None):
+    def call(self, x: tf.Tensor, **kwargs):
         return self.model(x)
 
 
@@ -375,7 +423,6 @@ class Basic_DDPG_policy(tk.Model):
                  activation: Optional[tk.layers.Layer] = None,
                  device: str = "cpu:0"
                  ):
-        assert isinstance(action_space, Box)
         super(Basic_DDPG_policy, self).__init__()
         self.action_dim = action_space.shape[0]
         self.n_agents = n_agents
@@ -398,7 +445,7 @@ class Basic_DDPG_policy(tk.Model):
         self.parameters_critic = self.critic_net.trainable_variables
         self.soft_update(1.0)
 
-    def call(self, inputs: Union[np.ndarray, dict], training=None, masks=None):
+    def call(self, inputs: Union[np.ndarray, dict], **kwargs):
         observations = tf.reshape(inputs['obs'], [-1, self.obs_dim])
         IDs = tf.reshape(inputs['ids'], [-1, self.n_agents])
         outputs = self.representation(observations)
@@ -449,7 +496,6 @@ class MADDPG_policy(Basic_DDPG_policy):
                  activation: Optional[tk.layers.Layer] = None,
                  device: str = "cpu:0"
                  ):
-        assert isinstance(action_space, Box)
         super(MADDPG_policy, self).__init__(action_space, n_agents, representation,
                                             actor_hidden_size, critic_hidden_size,
                                             normalize, initializer, activation, device)
@@ -501,7 +547,7 @@ class Attention_CriticNet(tk.Model):
         layers.extend(mlp_block(input_shape[0], 1, None, None, initializer, device)[0])
         self.model = tk.Sequential(layers)
 
-    def call(self, x: tf.Tensor, training=None, masks=None):
+    def call(self, x: tf.Tensor, **kwargs):
         return self.model(x)
 
 
@@ -707,7 +753,6 @@ class MATD3_policy(tk.Model):
                  activation: Optional[tk.layers.Layer] = None,
                  device: str = "cpu:0"
                  ):
-        assert isinstance(action_space, Box)
         super(MATD3_policy, self).__init__()
         self.action_dim = action_space.shape[0]
         self.n_agents = n_agents
@@ -730,7 +775,7 @@ class MATD3_policy(tk.Model):
         self.soft_update(tau=1.0)
         self.critic_parameters = self.critic_net_A.trainable_variables + self.critic_net_B.trainable_variables
 
-    def call(self, inputs: Union[np.ndarray, dict], training=None, masks=None):
+    def call(self, inputs: Union[np.ndarray, dict], **kwargs):
         observations = tf.reshape(inputs['obs'], [-1, self.obs_dim])
         IDs = tf.reshape(inputs['ids'], [-1, self.n_agents])
         outputs = self.representation(observations)

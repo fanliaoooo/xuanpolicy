@@ -4,42 +4,45 @@ from xuance.tensorflow.agents import *
 class PPG_Agent(Agent):
     def __init__(self,
                  config: Namespace,
-                 envs: VecEnv,
+                 envs: DummyVecEnv_Gym,
                  policy: tk.Model,
                  optimizer: tk.optimizers.Optimizer,
                  device: str = 'cpu'):
         self.render = config.render
-        self.nenvs = envs.num_envs
-        self.nsteps = config.nsteps
-        self.nminibatch = config.nminibatch
+        self.n_envs = envs.num_envs
+        self.n_steps = config.n_steps
+        self.n_minibatch = config.n_minibatch
+        self.n_epoch = config.n_epoch
         self.policy_nepoch = config.policy_nepoch
         self.value_nepoch = config.value_nepoch
         self.aux_nepoch = config.aux_nepoch
 
         self.gamma = config.gamma
-        self.lam = config.lam
+        self.gae_lam = config.gae_lambda
         self.observation_space = envs.observation_space
         self.action_space = envs.action_space
-        self.representation_info_shape = policy.representation.output_shapes
+        self.representation_info_shape = policy.actor_representation.output_shapes
         self.auxiliary_info_shape = {"old_dist": None}
 
+        self.buffer_size = self.n_envs * self.n_steps
+        self.batch_size = self.buffer_size // self.n_epoch
         memory = DummyOnPolicyBuffer(self.observation_space,
                                      self.action_space,
-                                     self.representation_info_shape,
                                      self.auxiliary_info_shape,
-                                     self.nenvs,
-                                     self.nsteps,
-                                     self.nminibatch,
+                                     self.n_envs,
+                                     self.n_steps,
+                                     config.use_gae,
+                                     config.use_advnorm,
                                      self.gamma,
-                                     self.lam)
+                                     self.gae_lam)
         learner = PPG_Learner(policy,
                               optimizer,
                               config.device,
-                              config.modeldir,
+                              config.model_dir,
                               config.ent_coef,
                               config.clip_range,
                               config.kl_beta)
-        super(PPG_Agent, self).__init__(config, envs, policy, memory, learner, device, config.logdir, config.modeldir)
+        super(PPG_Agent, self).__init__(config, envs, policy, memory, learner, device, config.log_dir, config.model_dir)
 
     def _action(self, obs):
         _, _, vs, _ = self.policy(obs)
@@ -61,32 +64,53 @@ class PPG_Agent(Agent):
             self.memory.store(obs, acts, self._process_reward(rewards), rets, terminals, {"old_dist": dists})
             if self.memory.full:
                 _, vals, _ = self._action(self._process_observation(next_obs))
-                for i in range(self.nenvs):
+                for i in range(self.n_envs):
                     self.memory.finish_path(vals[i], i)
                 # policy update
-                for _ in range(self.nminibatch * self.policy_nepoch):
-                    obs_batch, act_batch, ret_batch, adv_batch, aux_batch = self.memory.sample()
-                    step_info.update(
-                        self.learner.update_policy(obs_batch, act_batch, ret_batch, adv_batch, aux_batch['old_dist']))
+                indexes = np.arange(self.buffer_size)
+                for _ in range(self.policy_nepoch):
+                    np.random.shuffle(indexes)
+                    for start in range(0, self.buffer_size, self.batch_size):
+                        end = start + self.batch_size
+                        sample_idx = indexes[start:end]
+                        obs_batch, act_batch, ret_batch, _, adv_batch, aux_batch = self.memory.sample(sample_idx)
+                        step_info.update(self.learner.update_policy(obs_batch, act_batch, ret_batch, adv_batch,
+                                                                    aux_batch['old_dist']))
                 # critic update
-                for _ in range(self.nminibatch * self.value_nepoch):
-                    obs_batch, act_batch, ret_batch, adv_batch, aux_batch = self.memory.sample()
-                    step_info.update(
-                        self.learner.update_critic(obs_batch, act_batch, ret_batch, adv_batch, aux_batch['old_dist']))
+                for _ in range(self.value_nepoch):
+                    np.random.shuffle(indexes)
+                    for start in range(0, self.buffer_size, self.batch_size):
+                        end = start + self.batch_size
+                        sample_idx = indexes[start:end]
+                        obs_batch, act_batch, ret_batch, _, adv_batch, aux_batch = self.memory.sample(sample_idx)
+                        step_info.update(self.learner.update_critic(obs_batch, act_batch, ret_batch, adv_batch,
+                                                                    aux_batch['old_dist']))
 
                 # update old_prob
-                buffer_obs = self.memory.observations
+                buffer_obs_shape = self.memory.observations.shape
+                buffer_obs = self.memory.observations.reshape([-1, buffer_obs_shape[-1]])
                 buffer_act = self.memory.actions
-                _, new_dist, _, _ = self.policy(buffer_obs)
+                _, new_logits, _, _ = self.policy(buffer_obs)
+                try:
+                    self.policy.actor.dist.set_param(tf.reshape(new_logits, buffer_obs_shape[0:-1] + (-1,)))
+                except:
+                    new_std = tf.math.exp(self.policy.actor.logstd)
+                    self.policy.actor.dist.set_param(tf.reshape(new_logits, buffer_obs_shape[0:-1] + (-1,)), new_std)
+                new_dist = self.policy.actor.dist
                 self.memory.auxiliary_infos['old_dist'] = split_distributions(new_dist)
-                for _ in range(self.nminibatch * self.aux_nepoch):
-                    obs_batch, act_batch, ret_batch, adv_batch, aux_batch = self.memory.sample()
-                    step_info.update(self.learner.update_auxiliary(obs_batch, act_batch, ret_batch, adv_batch,
-                                                                   aux_batch['old_dist']))
+                for _ in range(self.aux_nepoch):
+                    np.random.shuffle(indexes)
+                    for start in range(0, self.buffer_size, self.batch_size):
+                        end = start + self.batch_size
+                        sample_idx = indexes[start:end]
+                        obs_batch, act_batch, ret_batch, _, adv_batch, aux_batch = self.memory.sample(sample_idx)
+                        step_info.update(self.learner.update_auxiliary(obs_batch, act_batch, ret_batch, adv_batch,
+                                                                       aux_batch['old_dist']))
+                self.log_infos(step_info, self.current_step)
                 self.memory.clear()
 
             obs = next_obs
-            for i in range(self.nenvs):
+            for i in range(self.n_envs):
                 if terminals[i] or trunctions[i]:
                     obs[i] = infos[i]["reset_obs"]
                     self.memory.finish_path(0, i)
@@ -99,7 +123,7 @@ class PPG_Agent(Agent):
                         step_info["Train-Episode-Rewards"] = {"env-%d" % i: infos[i]["episode_score"]}
                     self.log_infos(step_info, self.current_step)
 
-            self.current_step += 1
+            self.current_step += self.n_envs
 
     def test(self, env_fn, test_episodes):
         test_envs = env_fn()
@@ -142,7 +166,10 @@ class PPG_Agent(Agent):
         if self.config.test_mode:
             print("Best Score: %.2f" % (best_score))
 
-        test_info = {"Test-Episode-Rewards/Mean-Score": np.mean(scores)}
+        test_info = {
+            "Test-Episode-Rewards/Mean-Score": np.mean(scores),
+            "Test-Episode-Rewards/Std-Score": np.std(scores)
+        }
         self.log_infos(test_info, self.current_step)
 
         test_envs.close()

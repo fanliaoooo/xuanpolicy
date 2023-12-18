@@ -13,14 +13,15 @@ class football_raw_env(FootballEnv):
         extra_players = None
         other_config_options = {}
         self.env_id = GFOOTBALL_ENV_ID[args.env_id]
-        if args.render:
+        if args.test:
             write_full_episode_dumps = True
-            render = True
+            self.render = True
             write_video = True
         else:
             write_full_episode_dumps = False
-            render = False
+            self.render = False
             write_video = False
+        self.n_agents = args.num_agent
 
         self.env = football_env.create_environment(
             env_name=self.env_id,
@@ -29,10 +30,10 @@ class football_raw_env(FootballEnv):
             rewards=args.rewards_type,
             write_goal_dumps=write_goal_dumps,
             write_full_episode_dumps=write_full_episode_dumps,
-            render=render,
+            render=self.render,
             write_video=write_video,
             dump_frequency=dump_frequency,
-            logdir=args.videos_dir,
+            log_dir=args.videos_dir,
             extra_players=extra_players,
             number_of_left_players_agent_controls=args.num_agent,
             number_of_right_players_agent_controls=args.num_adversary,
@@ -71,7 +72,14 @@ class football_raw_env(FootballEnv):
     def step(self, action):
         obs, reward, terminated, info = self.env.step(action)
         truncated = False
-        return obs, reward, terminated, truncated, info
+        global_reward = np.sum(reward)
+        reward_n = np.array([global_reward] * self.n_agents)
+        return obs, reward_n, terminated, truncated, info
+
+    def get_frame(self):
+        original_obs = self.env._env._observation
+        frame = original_obs["frame"] if self.render else []
+        return frame
 
     def state(self):
         def do_flatten(obj):
@@ -97,6 +105,8 @@ class football_raw_env(FootballEnv):
                 game_mode = [0] * 7
                 game_mode[v] = 1
                 state.extend(game_mode)
+            elif k == "frame":
+                pass
             else:
                 state.extend(do_flatten(v))
         return state

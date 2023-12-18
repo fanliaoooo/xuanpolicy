@@ -30,20 +30,20 @@ class BasicRecurrent(nn.Module):
         super(BasicRecurrent, self).__init__()
         self.lstm = False
         if kwargs["rnn"] == "GRU":
-            output = gru_block(kwargs["input_dim"],
-                               kwargs["recurrent_hidden_size"],
-                               kwargs["recurrent_layer_N"],
-                               kwargs["dropout"],
-                               kwargs["initialize"],
-                               kwargs["device"])
+            output, _ = gru_block(kwargs["input_dim"],
+                                  kwargs["recurrent_hidden_size"],
+                                  kwargs["recurrent_layer_N"],
+                                  kwargs["dropout"],
+                                  kwargs["initialize"],
+                                  kwargs["device"])
         elif kwargs["rnn"] == "LSTM":
             self.lstm = True
-            output = lstm_block(kwargs["input_dim"],
-                                kwargs["recurrent_hidden_size"],
-                                kwargs["recurrent_layer_N"],
-                                kwargs["dropout"],
-                                kwargs["initialize"],
-                                kwargs["device"])
+            output, _ = lstm_block(kwargs["input_dim"],
+                                   kwargs["recurrent_hidden_size"],
+                                   kwargs["recurrent_layer_N"],
+                                   kwargs["dropout"],
+                                   kwargs["initialize"],
+                                   kwargs["device"])
         else:
             raise "Unknown recurrent module!"
         self.rnn_layer = output
@@ -808,10 +808,10 @@ class DRQNPolicy(nn.Module):
     def target(self, observation: Union[np.ndarray, dict], *rnn_hidden: torch.Tensor):
         if self.cnn:
             obs_shape = observation.shape
-            outputs = self.representation(observation.reshape((-1,) + obs_shape[-3:]))
+            outputs = self.target_representation(observation.reshape((-1,) + obs_shape[-3:]))
             outputs['state'] = outputs['state'].reshape(obs_shape[0:-3] + (-1,))
         else:
-            outputs = self.representation(observation)
+            outputs = self.target_representation(observation)
         if self.lstm:
             hidden_states, cell_states, targetQ = self.target_Qhead(outputs['state'], rnn_hidden[0], rnn_hidden[1])
         else:

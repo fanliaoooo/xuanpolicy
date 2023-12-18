@@ -19,7 +19,7 @@ class ActorNet(nn.Cell):
             self._dist = Categorical(dtype=ms.float32)
 
         def construct(self, value, probs):
-            return self._dist.log_prob(value=value, probs=probs)
+            return self._dist._log_prob(value=value, probs=probs)
 
     class Entropy(nn.Cell):
         def __init__(self):
@@ -134,13 +134,13 @@ class PPGActorCritic(nn.Cell):
                  initialize: Optional[Callable[..., ms.Tensor]] = None,
                  activation: Optional[ModuleType] = None
                  ):
-        assert isinstance(action_space, Discrete)
         super(PPGActorCritic, self).__init__()
         self.action_dim = action_space.n
-        self.representation = representation
-        self.policy_representation = representation
+        self.actor_representation = representation
         self.critic_representation = copy.deepcopy(representation)
-        self.representation_info_shape = self.representation.output_shapes
+        self.aux_critic_representation = copy.deepcopy(representation)
+        self.representation_info_shape = self.actor_representation.output_shapes
+
         self.actor = ActorNet(representation.output_shapes['state'][0], self.action_dim, actor_hidden_size,
                               normalize, initialize, activation)
         self.critic = CriticNet(representation.output_shapes['state'][0], critic_hidden_size,
@@ -149,7 +149,7 @@ class PPGActorCritic(nn.Cell):
                                     normalize, initialize, activation)
 
     def construct(self, observation: ms.tensor):
-        policy_outputs = self.policy_representation(observation)
+        policy_outputs = self.actor_representation(observation)
         critic_outputs = self.critic_representation(observation)
         a = self.actor(policy_outputs['state'])
         v = self.critic(critic_outputs['state'])
@@ -257,6 +257,7 @@ class SACDISPolicy(nn.Cell):
         super(SACDISPolicy, self).__init__()
         self.action_dim = action_space.n
         self.representation = representation
+        self.representation_critic = copy.deepcopy(representation)
         self.representation_info_shape = self.representation.output_shapes
         try:
             self.representation_params = self.representation.trainable_params()
@@ -267,6 +268,7 @@ class SACDISPolicy(nn.Cell):
                               normalize, initialize, activation)
         self.critic = CriticNet_SACDIS(representation.output_shapes['state'][0], self.action_dim, critic_hidden_size,
                                        initialize, activation)
+        self.target_representation_critic = copy.deepcopy(self.representation_critic)
         self.target_critic = copy.deepcopy(self.critic)
         self.actor_params = self.representation_params + self.actor.trainable_params()
         self._log = ms.ops.Log()
@@ -283,20 +285,24 @@ class SACDISPolicy(nn.Cell):
 
     def Qtarget(self, observation: ms.tensor):
         outputs = self.representation(observation)
-        act_prob = self.actor(outputs[0])
+        outputs_critic = self.target_representation_critic(observation)
+        act_prob = self.actor(outputs['state'])
         log_action_prob = self._log(act_prob + 1e-10)
-        return outputs, act_prob, log_action_prob, self.target_critic(outputs[0])
+        return act_prob, log_action_prob, self.target_critic(outputs_critic['state'])
 
     def Qaction(self, observation: ms.tensor):
-        outputs = self.representation(observation)
+        outputs = self.representation_critic(observation)
         return outputs, self.critic(outputs['state'])
 
     def Qpolicy(self, observation: ms.tensor):
         outputs = self.representation(observation)
+        outputs_critic = self.representation_critic(observation)
         act_prob = self.actor(outputs['state'])
         log_action_prob = self._log(act_prob + 1e-10)
-        return outputs, act_prob, log_action_prob, self.critic(outputs['state'])
+        return act_prob, log_action_prob, self.critic(outputs_critic['state'])
 
     def soft_update(self, tau=0.005):
+        for ep, tp in zip(self.representation_critic.trainable_params(), self.target_representation_critic.trainable_params()):
+            tp.assign_value((tau * ep.data + (1 - tau) * tp.data))
         for ep, tp in zip(self.critic.trainable_params(), self.target_critic.trainable_params()):
             tp.assign_value((tau * ep.data + (1 - tau) * tp.data))

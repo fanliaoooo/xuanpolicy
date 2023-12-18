@@ -6,17 +6,17 @@ class PG_Learner(Learner):
                  policy: tk.Model,
                  optimizer: tk.optimizers.Optimizer,
                  device: str = "cpu:0",
-                 modeldir: str = "./",
+                 model_dir: str = "./",
                  ent_coef: float = 0.005,
                  clip_grad: Optional[float] = None):
-        super(PG_Learner, self).__init__(policy, optimizer, device, modeldir)
+        super(PG_Learner, self).__init__(policy, optimizer, device, model_dir)
         self.ent_coef = ent_coef
         self.clip_grad = clip_grad
 
     def update(self, obs_batch, act_batch, ret_batch):
         self.iterations += 1
         with tf.device(self.device):
-            act_batch = tf.convert_to_tensor(act_batch, dtype=tf.int32)
+            act_batch = tf.convert_to_tensor(act_batch, dtype=tf.float32)
             ret_batch = tf.convert_to_tensor(ret_batch)
 
             with tf.GradientTape() as tape:

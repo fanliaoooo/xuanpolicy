@@ -11,7 +11,7 @@ class MATD3_Learner(LearnerMAS):
                  policy: tk.Model,
                  optimizer: Sequence[tk.optimizers.Optimizer],
                  device: str = "cpu:0",
-                 modeldir: str = "./",
+                 model_dir: str = "./",
                  gamma: float = 0.99,
                  sync_frequency: int = 100,
                  delay: int = 3
@@ -20,14 +20,14 @@ class MATD3_Learner(LearnerMAS):
         self.tau = config.tau
         self.delay = delay
         self.sync_frequency = sync_frequency
-        super(MATD3_Learner, self).__init__(config, policy, optimizer, device, modeldir)
+        super(MATD3_Learner, self).__init__(config, policy, optimizer, device, model_dir)
         self.optimizer = {
             'actor': optimizer[0],
             'critic': optimizer[1]
         }
 
     def save_model(self):
-        model_path = self.modeldir + "model-%s-%s" % (time.asctime(), str(self.iterations))
+        model_path = self.model_dir + "model-%s-%s" % (time.asctime(), str(self.iterations))
         self.policy.actor_net.save(model_path)
 
     def load_model(self, path):
@@ -64,7 +64,7 @@ class MATD3_Learner(LearnerMAS):
                 loss_c = tk.losses.mean_squared_error(y_true, y_pred)
                 gradients = tape.gradient(loss_c, self.policy.critic_parameters)
                 self.optimizer['critic'].apply_gradients([
-                    (tf.clip_by_norm(grad, self.args.clip_grad), var)
+                    (tf.clip_by_norm(grad, self.args.grad_clip_norm), var)
                     for (grad, var) in zip(gradients, self.policy.critic_parameters)
                     if grad is not None
                 ])
@@ -78,7 +78,7 @@ class MATD3_Learner(LearnerMAS):
                     p_loss = -tf.reduce_mean(policy_q)
                     gradients = tape.gradient(p_loss, self.policy.actor_net.trainable_variables)
                     self.optimizer['actor'].apply_gradients([
-                        (tf.clip_by_norm(grad, self.args.clip_grad), var)
+                        (tf.clip_by_norm(grad, self.args.grad_clip_norm), var)
                         for (grad, var) in zip(gradients, self.policy.actor_net.trainable_variables)
                         if grad is not None
                     ])

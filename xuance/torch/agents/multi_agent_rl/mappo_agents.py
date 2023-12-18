@@ -10,7 +10,6 @@ class MAPPO_Agents(MARLAgents):
                  device: Optional[Union[int, str, torch.device]] = None):
         self.gamma = config.gamma
         self.n_envs = envs.num_envs
-        self.n_size = config.n_size
         self.n_epoch = config.n_epoch
         self.n_minibatch = config.n_minibatch
         if config.state_space is not None:
@@ -27,7 +26,10 @@ class MAPPO_Agents(MARLAgents):
                       "rnn": config.rnn} if self.use_recurrent else {}
         representation = REGISTRY_Representation[config.representation](*input_representation, **kwargs_rnn)
         # create representation for critic
-        input_representation[0] = (config.dim_state,) if self.use_global_state else (config.dim_obs * config.n_agents,)
+        if self.use_global_state:
+            input_representation[0] = (config.dim_state + config.dim_obs * config.n_agents,)
+        else:
+            input_representation[0] = (config.dim_obs * config.n_agents,)
         representation_critic = REGISTRY_Representation[config.representation](*input_representation, **kwargs_rnn)
         # create policy
         input_policy = get_policy_in_marl(config, (representation, representation_critic))
@@ -50,8 +52,7 @@ class MAPPO_Agents(MARLAgents):
         self.buffer_size = memory.buffer_size
         self.batch_size = self.buffer_size // self.n_minibatch
 
-        learner = MAPPO_Clip_Learner(config, policy, optimizer, None,
-                                     config.device, config.model_dir, config.gamma)
+        learner = MAPPO_Clip_Learner(config, policy, optimizer, None, config.device, config.model_dir, config.gamma)
         super(MAPPO_Agents, self).__init__(config, envs, policy, memory, learner, device,
                                            config.log_dir, config.model_dir)
         self.share_values = True if config.rew_shape[0] == 1 else False
@@ -82,7 +83,9 @@ class MAPPO_Agents(MARLAgents):
         # build critic input
         if self.use_global_state:
             state = torch.Tensor(state).unsqueeze(1).to(self.device)
-            critic_in = state.expand(-1, self.n_agents, -1)
+            obs_n = torch.Tensor(obs_n).view([batch_size, 1, -1]).to(self.device)
+            critic_in = torch.concat([obs_n.expand(-1, self.n_agents, -1),
+                                      state.expand(-1, self.n_agents, -1)], dim=-1)
         else:
             critic_in = torch.Tensor(obs_n).view([batch_size, 1, -1]).to(self.device)
             critic_in = critic_in.expand(-1, self.n_agents, -1)
@@ -97,9 +100,9 @@ class MAPPO_Agents(MARLAgents):
 
         return hidden_state, values_n.detach().cpu().numpy()
 
-    def train(self, i_step):
+    def train(self, i_step, **kwargs):
+        info_train = {}
         if self.memory.full:
-            info_train = {}
             indexes = np.arange(self.buffer_size)
             for _ in range(self.n_epoch):
                 np.random.shuffle(indexes)
@@ -113,6 +116,4 @@ class MAPPO_Agents(MARLAgents):
                         info_train = self.learner.update(sample)
             self.learner.lr_decay(i_step)
             self.memory.clear()
-            return info_train
-        else:
-            return {}
+        return info_train

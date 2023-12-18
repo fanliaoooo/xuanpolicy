@@ -6,23 +6,29 @@ class SACDIS_Learner(Learner):
                  policy: tk.Model,
                  optimizers: Sequence[tk.optimizers.Optimizer],
                  device: str = "cpu:0",
-                 modeldir: str = "./",
+                 model_dir: str = "./",
                  gamma: float = 0.99,
                  tau: float = 0.01):
         self.tau = tau
         self.gamma = gamma
-        super(SACDIS_Learner, self).__init__(policy, optimizers, device, modeldir)
+        super(SACDIS_Learner, self).__init__(policy, optimizers, device, model_dir)
 
-    def save_model(self):
-        model_path = self.modeldir + "model-%s-%s" % (time.asctime(), str(self.iterations))
+    def save_model(self, model_path):
         self.policy.actor.save(model_path)
 
-    def load_model(self, path):
+    def load_model(self, path, seed=1):
+        file_names = os.listdir(path)
+        for f in file_names:
+            '''Change directory to the specified seed (if exists)'''
+            if f"seed_{seed}" in f:
+                path = os.path.join(path, f)
+                break
         model_names = os.listdir(path)
         try:
-            model_names.remove('obs_rms.npy')
+            if os.path.exists(path + "/obs_rms.npy"):
+                model_names.remove("obs_rms.npy")
             model_names.sort()
-            model_path = path + model_names[-1]
+            model_path = os.path.join(path, model_names[-1])
             self.policy.actor = tk.models.load_model(model_path, compile=False)
         except:
             raise "Failed to load model! Please train and save the model first."
@@ -40,7 +46,7 @@ class SACDIS_Learner(Learner):
                 _, action_q = self.policy.Qaction(obs_batch)
                 action_q = tf.gather(params=action_q, indices=act_batch, axis=-1, batch_dims=-1)
                 # with torch.no_grad():
-                _, action_prob_next, log_pi_next, target_q = self.policy.Qtarget(next_batch)
+                action_prob_next, log_pi_next, target_q = self.policy.Qtarget(next_batch)
                 target_q = action_prob_next * (target_q - 0.01 * log_pi_next)
                 target_q = tf.expand_dims(tf.reduce_sum(target_q, axis=1), axis=-1)
                 rew = tf.expand_dims(rew_batch, axis=-1)
@@ -57,7 +63,7 @@ class SACDIS_Learner(Learner):
 
             # actor update
             with tf.GradientTape() as tape:
-                _, action_prob, log_pi, policy_q = self.policy.Qpolicy(obs_batch)
+                action_prob, log_pi, policy_q = self.policy.Qpolicy(obs_batch)
                 inside_term = 0.01 * log_pi - policy_q
                 p_loss = tf.reduce_mean(tf.reduce_sum(action_prob * inside_term, axis=-1))
                 gradients = tape.gradient(p_loss, self.policy.actor.trainable_variables)

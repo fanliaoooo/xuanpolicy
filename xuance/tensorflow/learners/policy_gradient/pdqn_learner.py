@@ -4,29 +4,34 @@ class PDQN_Learner(Learner):
     def __init__(self,
                  policy: tk.Model,
                  optimizers: Sequence[tk.optimizers.Optimizer],
-                 summary_writer: Optional[SummaryWriter] = None,
                  device: str = "cpu:0",
-                 modeldir: str = "./",
+                 model_dir: str = "./",
                  gamma: float = 0.99,
                  tau: float = 0.01):
         self.tau = tau
         self.gamma = gamma
-        super(PDQN_Learner, self).__init__(policy, optimizers, summary_writer, device, modeldir)
+        super(PDQN_Learner, self).__init__(policy, optimizers, device, model_dir)
 
-    def save_model(self):
-        model_path = self.modeldir + "model-%s-%s" % (time.asctime(), str(self.iterations))
+    def save_model(self, model_path):
         model_path_qnet = model_path + "/qnet"
         model_path_actor = model_path + "/conactor"
         self.policy.qnetwork.save(model_path_qnet)
         self.policy.conactor.save(model_path_actor)
 
-    def load_model(self, path):
+    def load_model(self, path, seed=1):
+        file_names = os.listdir(path)
+        for f in file_names:
+            '''Change directory to the specified seed (if exists)'''
+            if f"seed_{seed}" in f:
+                path = os.path.join(path, f)
+                break
         model_names = os.listdir(path)
         try:
-            model_names.remove('obs_rms.npy')
+            if os.path.exists(path + "/obs_rms.npy"):
+                model_names.remove("obs_rms.npy")
             model_names.sort()
-            model_path_qnet = path + model_names[-1] + "/qnet"
-            model_path_actor = path + model_names[-1] + "/conactor"
+            model_path_qnet = os.path.join(path, model_names[-1], "qnet")
+            model_path_actor = os.path.join(path, model_names[-1], "conactor")
             self.policy.qnetwork = tk.models.load_model(model_path_qnet, compile=False)
             self.policy.conactor = tk.models.load_model(model_path_actor, compile=False)
         except:
@@ -76,6 +81,10 @@ class PDQN_Learner(Learner):
 
             self.policy.soft_update(self.tau)
 
-            self.writer.add_scalar("Q_loss", q_loss.numpy(), self.iterations)
-            self.writer.add_scalar("P_loss", q_loss.numpy(), self.iterations)
-            self.writer.add_scalar('Qvalue', tf.math.reduce_mean(eval_q).numpy(), self.iterations)
+            info = {
+                "Q_loss": q_loss.numpy(),
+                "P_loss": q_loss.numpy(),
+                'Qvalue': tf.math.reduce_mean(eval_q).numpy()
+            }
+
+            return info

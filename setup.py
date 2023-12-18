@@ -9,11 +9,12 @@ setup(
                 "configs/*.yaml",
                 "configs/*/*.yaml",
                 "configs/*/*/*.yaml",
-                "environment/magent2/libmagent.so",  # for magent2 environment
-                "environment/magent2/magent.dll"  # for magent2 environment
+                "environment/magent2/libmagent.so",  # for magent2 environment on linux
+                "environment/magent2/magent.dll",  # for magent2 environment on Windows
+                "environment/magent2/libmagent.dylib"  # for magent2 environment on MacOS
             ]
     },
-    version='1.0.0',
+    version='1.0.5',
     description='XuanCe: A Comprehensive and Unified Deep Reinforcement Learning Library.',
     author='XuanCe contributors.',
     author_email='',
@@ -36,11 +37,11 @@ setup(
     extras_require={
         "torch": ["torch==1.13.0"],
         "tensorflow": ["tensorflow==2.6.0"],
-        "mindspore": ["mindspore==1.10.1"],
+        "mindspore": ["mindspore==2.2.0"],
         "all": [
             "torch==1.13.0",
             "tensorflow==2.6.0",
-            "mindspore==1.10.1"
+            "mindspore==2.2.0"  # mindspore might be installed manually.
         ]
     },
     install_requires=[
@@ -50,7 +51,7 @@ setup(
         "gym==0.26.2",
         "gymnasium==0.28.1",
         "gym-notices==0.0.8",
-        "box2d-py==2.3.5",
+        # "box2d-py==2.3.5",  # for box2d
         "mpi4py==3.1.3",
         "tqdm==4.62.3",
         "pyglet==1.5.15",
@@ -58,7 +59,7 @@ setup(
         "atari-py==0.2.9",
         "ale-py==0.7.5",
         "pettingzoo==1.23.0",  # for MARL
-        "magent2==0.3.2",
+        "magent2",  # 0.3.2 is suggested
         "tensorboard==2.11.2",  # logger
         "wandb==0.15.3",
         "moviepy==1.0.3",
