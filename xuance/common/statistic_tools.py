@@ -109,7 +109,7 @@ class RunningMeanStd(object):
             new_count = batch_count + self.count
             self.mean = new_mean
             self.var = new_var
-            self.count = new_count
+            self.count = new_count # 这段代码不太简洁直观
 
 
 class OUNoise(object):

@@ -88,13 +88,13 @@ class PPOCLIP_Agent(Agent):
             obs = next_obs
             for i in range(self.n_envs):
                 if terminals[i] or trunctions[i]:
-                    self.ret_rms.update(self.returns[i:i + 1])
+                    self.ret_rms.update(self.returns[i:i + 1]) # return的统计特性更新只在有新增完整轨迹时进行
                     self.returns[i] = 0.0
                     if self.atari and (~trunctions[i]):
                         pass
                     else:
                         if terminals[i]:
-                            self.memory.finish_path(0.0, i)
+                            self.memory.finish_path(0.0, i) # 通过该条完整轨迹的values 和 rewards 计算 advantages 和 returns 如果轨迹结束那么下一时刻的reward为0，value为0，故在轨迹后添加一个0方便下一步计算
                         else:
                             _, vals, _ = self._action(self._process_observation(next_obs))
                             self.memory.finish_path(vals[i], i)
@@ -123,7 +123,7 @@ class PPOCLIP_Agent(Agent):
 
         while current_episode < test_episode:
             self.obs_rms.update(obs)
-            obs = self._process_observation(obs)
+            obs = self._process_observation(obs) # 判断是否需要对观测进行标准化，若是则进行obsnorm
             acts, rets, logps = self._action(obs)
             next_obs, rewards, terminals, trunctions, infos = test_envs.step(acts)
             if self.config.render_mode == "rgb_array" and self.render:
