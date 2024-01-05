@@ -14,7 +14,7 @@ with open('dataset_label.csv','r') as csvfile:
     label = list(reader)
 
 input_data = np.array(flatten_data, dtype=np.float64)
-inputs = input_data.reshape(input_data.shape[0],4,-1)
+inputs = input_data.reshape(input_data.shape[0],5,-1)
 #预处理数据
 
 min_train_set = np.amin(inputs, axis=(1,2))
@@ -44,7 +44,7 @@ with open('validset_label.csv', 'r') as csvfile:
     labelvalid = list(reader)
 
 input_valid = np.array(flatten_validdata, dtype=np.float64)
-input_valid = input_valid.reshape(input_valid.shape[0],4,-1)
+input_valid = input_valid.reshape(input_valid.shape[0],5,-1)
 label_valid = np.array(labelvalid, dtype=np.float32)
 ##预处理数据
 
@@ -73,7 +73,7 @@ with open('testset_label.csv', 'r') as csvfile:
     labeltest = list(reader)
 
 input_test = np.array(flatten_testdata, dtype=np.float64)
-input_test = input_test.reshape(input_test.shape[0],4,-1)
+input_test = input_test.reshape(input_test.shape[0],5,-1)
 label_test = np.array(labeltest, dtype=np.float32)
 ##预处理数据
 

@@ -79,10 +79,10 @@ def train_data_gen(samples,good_nums,adv_nums,mode):
             writer = csv.writer(csvfile)
             writer.writerows(all_label)
 
-train_data_gen(20000,10,10,0) #mode==0构建训练集
-train_data_gen(4000, 10, 10,1) #mode==1构建验证集
+train_data_gen(20000,4,2,0) #mode==0构建训练集
+train_data_gen(4000, 4, 2,1) #mode==1构建验证集
 
-train_data_gen(2000,10,10,2) #mode==1构建测试集
+train_data_gen(1000,4,2,2) #mode==1构建测试集
 
 
 

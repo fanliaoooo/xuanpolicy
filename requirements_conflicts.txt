@@ -1,0 +1,177 @@
+python-dateutil==2.8.2
+requests==2.31
+urllib3==1.26.18
+cryptography==41.0.3
+protobuf==3.20.3
+imageio==2.9.0
+scipy==1.7.3
+tensorboard==2.11.2
+PyYAML==6.0
+
+
+
+  Attempting uninstall: soupsieve
+    Found existing installation: soupsieve 2.5
+    Uninstalling soupsieve-2.5:
+      Successfully uninstalled soupsieve-2.5
+  Attempting uninstall: pytz
+    Found existing installation: pytz 2023.3
+    Uninstalling pytz-2023.3:
+      Successfully uninstalled pytz-2023.3
+  Attempting uninstall: pyasn1
+    Found existing installation: pyasn1 0.5.0
+    Uninstalling pyasn1-0.5.0:
+      Successfully uninstalled pyasn1-0.5.0
+  Attempting uninstall: overrides
+    Found existing installation: overrides 7.4.0
+    Uninstalling overrides-7.4.0:
+      Successfully uninstalled overrides-7.4.0
+  Attempting uninstall: joblib
+    Found existing installation: joblib 1.3.2
+    Uninstalling joblib-1.3.2:
+      Successfully uninstalled joblib-1.3.2
+  Attempting uninstall: certifi
+    Found existing installation: certifi 2023.11.17
+    Uninstalling certifi-2023.11.17:
+      Successfully uninstalled certifi-2023.11.17
+  Attempting uninstall: Werkzeug
+    Found existing installation: Werkzeug 3.0.1
+    Uninstalling Werkzeug-3.0.1:
+      Successfully uninstalled Werkzeug-3.0.1
+  Attempting uninstall: urllib3
+    Found existing installation: urllib3 1.26.18
+    Uninstalling urllib3-1.26.18:
+      Successfully uninstalled urllib3-1.26.18
+  Attempting uninstall: six
+    Found existing installation: six 1.16.0
+    Uninstalling six-1.16.0:
+      Successfully uninstalled six-1.16.0
+  Attempting uninstall: scipy
+    Found existing installation: scipy 1.7.3
+    Uninstalling scipy-1.7.3:
+      Successfully uninstalled scipy-1.7.3
+  Attempting uninstall: rsa
+    Found existing installation: rsa 4.9
+    Uninstalling rsa-4.9:
+      Successfully uninstalled rsa-4.9
+  Attempting uninstall: pyparsing
+    Found existing installation: pyparsing 3.0.9
+    Uninstalling pyparsing-3.0.9:
+      Successfully uninstalled pyparsing-3.0.9
+  Attempting uninstall: pycparser
+    Found existing installation: pycparser 2.21
+    Uninstalling pycparser-2.21:
+      Successfully uninstalled pycparser-2.21
+  Attempting uninstall: pyasn1-modules
+    Found existing installation: pyasn1-modules 0.3.0
+    Uninstalling pyasn1-modules-0.3.0:
+      Successfully uninstalled pyasn1-modules-0.3.0
+  Attempting uninstall: Pillow
+    Found existing installation: Pillow 10.0.1
+    Uninstalling Pillow-10.0.1:
+      Successfully uninstalled Pillow-10.0.1
+  Attempting uninstall: oauthlib
+    Found existing installation: oauthlib 3.2.2
+    Uninstalling oauthlib-3.2.2:
+      Successfully uninstalled oauthlib-3.2.2
+  Attempting uninstall: Markdown
+    Found existing installation: Markdown 3.5
+    Uninstalling Markdown-3.5:
+      Successfully uninstalled Markdown-3.5
+  Attempting uninstall: kiwisolver
+    Found existing installation: kiwisolver 1.4.4
+    Uninstalling kiwisolver-1.4.4:
+      Successfully uninstalled kiwisolver-1.4.4
+  Attempting uninstall: idna
+    Found existing installation: idna 3.4
+    Uninstalling idna-3.4:
+      Successfully uninstalled idna-3.4
+  Attempting uninstall: decorator
+    Found existing installation: decorator 4.4.2
+    Uninstalling decorator-4.4.2:
+      Successfully uninstalled decorator-4.4.2
+  Attempting uninstall: cachetools
+    Found existing installation: cachetools 5.3.2
+    Uninstalling cachetools-5.3.2:
+      Successfully uninstalled cachetools-5.3.2
+  Attempting uninstall: beautifulsoup4
+    Found existing installation: beautifulsoup4 4.12.2
+    Uninstalling beautifulsoup4-4.12.2:
+      Successfully uninstalled beautifulsoup4-4.12.2
+  Attempting uninstall: scikit-learn
+    Found existing installation: scikit-learn 1.3.2
+    Uninstalling scikit-learn-1.3.2:
+      Successfully uninstalled scikit-learn-1.3.2
+  Attempting uninstall: requests
+    Found existing installation: requests 2.31.0
+    Uninstalling requests-2.31.0:
+      Successfully uninstalled requests-2.31.0
+  Attempting uninstall: python-dateutil
+    Found existing installation: python-dateutil 2.8.2
+    Uninstalling python-dateutil-2.8.2:
+      Successfully uninstalled python-dateutil-2.8.2
+  Attempting uninstall: protobuf
+    Found existing installation: protobuf 3.20.3
+    Uninstalling protobuf-3.20.3:
+      Successfully uninstalled protobuf-3.20.3
+  Attempting uninstall: imageio
+    Found existing installation: imageio 2.9.0
+    Uninstalling imageio-2.9.0:
+      Successfully uninstalled imageio-2.9.0
+  Attempting uninstall: grpcio
+    Found existing installation: grpcio 1.59.0
+    Uninstalling grpcio-1.59.0:
+      Successfully uninstalled grpcio-1.59.0
+  Attempting uninstall: google-auth
+    Found existing installation: google-auth 2.23.3
+    Uninstalling google-auth-2.23.3:
+      Successfully uninstalled google-auth-2.23.3
+  Attempting uninstall: cycler
+    Found existing installation: cycler 0.11.0
+    Uninstalling cycler-0.11.0:
+      Successfully uninstalled cycler-0.11.0
+  Attempting uninstall: cffi
+    Found existing installation: cffi 1.16.0
+    Uninstalling cffi-1.16.0:
+      Successfully uninstalled cffi-1.16.0
+  Attempting uninstall: absl-py
+    Found existing installation: absl-py 2.0.0
+    Uninstalling absl-py-2.0.0:
+      Successfully uninstalled absl-py-2.0.0
+  Attempting uninstall: requests-oauthlib
+    Found existing installation: requests-oauthlib 1.3.1
+    Uninstalling requests-oauthlib-1.3.1:
+      Successfully uninstalled requests-oauthlib-1.3.1
+  Attempting uninstall: pandas
+    Found existing installation: pandas 2.0.3
+    Uninstalling pandas-2.0.3:
+      Successfully uninstalled pandas-2.0.3
+  Attempting uninstall: matplotlib
+    Found existing installation: matplotlib 3.7.2
+    Uninstalling matplotlib-3.7.2:
+      Successfully uninstalled matplotlib-3.7.2
+  Attempting uninstall: cryptography
+    Found existing installation: cryptography 41.0.3
+    Uninstalling cryptography-41.0.3:
+      Successfully uninstalled cryptography-41.0.3
+  Attempting uninstall: google-auth-oauthlib
+    Found existing installation: google-auth-oauthlib 0.4.6
+    Uninstalling google-auth-oauthlib-0.4.6:
+      Successfully uninstalled google-auth-oauthlib-0.4.6
+  Attempting uninstall: tensorboard
+    Found existing installation: tensorboard 2.11.2
+    Uninstalling tensorboard-2.11.2:
+      Successfully uninstalled tensorboard-2.11.2
+
+
+
+ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+jupyter-client 8.6.0 requires python-dateutil>=2.8.2, but you have python-dateutil 2.8.1 which is incompatible.
+jupyterlab-server 2.25.1 requires requests>=2.31, but you have requests 2.22.0 which is incompatible.
+pyopenssl 23.2.0 requires cryptography!=40.0.0,!=40.0.1,<42,>=38.0.0, but you have cryptography 2.8 which is incompatible.
+sentry-sdk 1.32.0 requires urllib3>=1.26.11; python_version >= "3.6", but you have urllib3 1.25.8 which is incompatible.
+wandb 0.15.3 requires protobuf!=4.21.0,<5,>=3.12.0; python_version < "3.9" and sys_platform == "linux", but you have protobuf 3.11.3 which is incompatible.
+xuance 1.0.0 requires imageio==2.9.0, but you have imageio 2.6.1 which is incompatible.
+xuance 1.0.0 requires PyYAML==6.0, but you have pyyaml 6.0.1 which is incompatible.
+xuance 1.0.0 requires scipy==1.7.3, but you have scipy 1.4.1 which is incompatible.
+xuance 1.0.0 requires tensorboard==2.11.2, but you have tensorboard 2.1.0 which is incompatible.

@@ -49,7 +49,7 @@ def train_data_gen(samples,good_nums,adv_nums,mode):
 
         all_data = np.concatenate((all_data, data[np.newaxis,...]), axis=0)
         all_label = np.concatenate((all_label, label_01[np.newaxis,...]), axis=0)
-    all_label = all_label.reshape(-1,16)
+    all_label = all_label.reshape(-1,adv_nums*good_nums)
 
 
     flatten_data = all_data.reshape(all_data.shape[0],-1)
@@ -79,10 +79,10 @@ def train_data_gen(samples,good_nums,adv_nums,mode):
             writer = csv.writer(csvfile)
             writer.writerows(all_label)
 
-train_data_gen(20000,4,4,0) #mode==0构建训练集
-train_data_gen(4000, 4, 4,1) #mode==1构建验证集
+train_data_gen(10000,10,10,0) #mode==0构建训练集
+train_data_gen(4000, 10, 10,1) #mode==1构建验证集
 
-train_data_gen(2000,4,4,2) #mode==1构建测试集
+train_data_gen(2000,10,10,2) #mode==1构建测试集
 
 
 

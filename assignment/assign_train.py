@@ -154,7 +154,7 @@ class TargetAllocationModel(nn.Module):
         return out
 
 
-def train(model,input_loader, labels,criterion, optimizer,scheduler,num_epochs,num_samples,batch_size):
+def train(model,input_loader, labels,criterion, optimizer,num_epochs,num_samples,batch_size):
     for epoch in range(num_epochs):
         model.train()
         indices = torch.randperm(input_loader.size(0))
@@ -185,7 +185,7 @@ def train(model,input_loader, labels,criterion, optimizer,scheduler,num_epochs,n
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
-        scheduler.step()
+        # scheduler.step()
         print("*****************************************")
         print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {running_loss/(num_samples/batch_size):.4f}')
         # if not epoch%50:
@@ -246,13 +246,13 @@ model.to('cuda:0')
 # 定义损失函数和优化器
 criterion = nn.MSELoss()  # 交叉熵损失函数，用于多分类问题
 optimizer = optim.Adam(model.parameters(), lr=0.0001)  # Adam 优化器
-scheduler = StepLR(optimizer, step_size=200, gamma = 0.5)
+# scheduler = StepLR(optimizer, step_size=200, gamma = 0.5)
 
 
-#pretrained_weights_path = '10v5__20000__cnn.pth'
-#model.load_state_dict(torch.load(pretrained_weights_path))
+pretrained_weights_path = 'target_allocation_model1.pth'
+model.load_state_dict(torch.load(pretrained_weights_path))
 #训练
-train(model,input_data, label, criterion, optimizer,scheduler,500,input_data.size(0),4)
+train(model,input_data, label, criterion, optimizer,2000,input_data.size(0),4)
 
 # 保存模型
 # test(model,input_test,label_test)
